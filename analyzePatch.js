@@ -3,6 +3,7 @@ import { parsePatchFile } from "./parsePatch.js";
 import { findSimilarFiles } from "./utils.js";
 import { askLMStudio } from "./lmstudioClient.js";
 import path from "path";
+import { systemPrompt } from "./systemPrompt.js";
 
 const repoPath = process.argv[2];
 const patchPath = process.argv[3];
@@ -16,6 +17,9 @@ if (!repoPath || !patchPath) {
 console.log("📦 Loading repo...");
 const repoFiles = loadAllRepoFiles(repoPath);
 
+// console.log("Repo Files:::", Object.keys(repoFiles));
+// console.log("Content:::", repoFiles[Object.keys(repoFiles)[0]]);
+
 console.log("🧩 Parsing patch...");
 const patchFiles = await parsePatchFile(patchPath);
 
@@ -23,7 +27,7 @@ let finalSuggestions = "";
 const combinedMessages = [
   {
     role: "system",
-    content: "You are an expert software engineer reviewing multiple code changes with full context.",
+    content: `${systemPrompt}. You are reviewing multiple code changes with full context.`,
   },
 ];
 
@@ -52,7 +56,7 @@ for (const [filename, { isNew, patch }] of Object.entries(patchFiles)) {
     const messages = [
       {
         role: "system",
-        content: "You are an expert software engineer reviewing a single file's code patch.",
+        content: `${systemPrompt}. You are reviewing a single file's code patch.`,
       },
     ];
 
