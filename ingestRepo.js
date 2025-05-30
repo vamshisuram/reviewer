@@ -1,22 +1,25 @@
-import fs from "fs-extra";
-import glob from "glob";
+import fs from "fs";
 import path from "path";
-import { SimpleDocument } from "llamaindex";
+import { Document } from "llamaindex";
 
-export async function loadRepoFiles(basePath) {
-  const files = glob.sync(`${basePath}/**/*.{js,ts,jsx,tsx,json,md}`, {
-    ignore: [`${basePath}/node_modules/**`],
-  });
+export async function loadRepoFiles(repoPath) {
+  const files = [];
 
-  const docs = [];
+  function readDirRecursive(currentPath) {
+    const entries = fs.readdirSync(currentPath, { withFileTypes: true });
 
-  for (const file of files) {
-    const content = await fs.readFile(file, "utf-8");
-    docs.push(new SimpleDocument({
-      id_: file,
-      text: `FILE: ${path.relative(basePath, file)}\n\n${content}`,
-    }));
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "node_modules") continue;
+        readDirRecursive(fullPath);
+      } else if (entry.isFile() && fullPath.endsWith(".js")) {
+        const content = fs.readFileSync(fullPath, "utf8");
+        files.push(new Document({ text: content, metadata: { filepath: fullPath } }));
+      }
+    }
   }
 
-  return docs;
+  readDirRecursive(repoPath);
+  return files;
 }

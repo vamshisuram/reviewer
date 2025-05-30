@@ -1,12 +1,8 @@
-import { Ollama } from "@llamaindex/ollama";
-import { VectorStoreIndex, serviceContextFromDefaults } from "llamaindex";
 import { loadRepoFiles } from "./ingestRepo.js";
 import { loadPatch } from "./parsePatch.js";
+import { askLMStudio } from "./lmstudioClient.js";
 
-const llm = new Ollama({ model: "llama3" });
-const serviceContext = serviceContextFromDefaults({ llm });
-
-const repoPath = process.argv[2];  // Pass as: node analyzePatch.js /path/to/repo /path/to/patch.diff
+const repoPath = process.argv[2];
 const patchPath = process.argv[3];
 
 if (!repoPath || !patchPath) {
@@ -14,25 +10,32 @@ if (!repoPath || !patchPath) {
   process.exit(1);
 }
 
-console.log("Reading repo files...");
+console.log("📂 Reading repo files...");
 const repoDocs = await loadRepoFiles(repoPath);
 
-console.log("Creating vector index...");
-const index = await VectorStoreIndex.fromDocuments(repoDocs, { serviceContext });
+// Concatenate repo context into a big string (you can later chunk if needed)
+const repoContext = repoDocs.map((doc) => {
+  const filename = doc.metadata?.filepath?.split("/").slice(-3).join("/") || "file";
+  return `--- ${filename} ---\n${doc.text}\n`;
+}).join("\n");
 
-console.log("Loading patch...");
+console.log("📄 Loading patch...");
 const patchContent = await loadPatch(patchPath);
 
-console.log("Querying with patch...");
-const queryEngine = index.asQueryEngine();
+console.log("🧠 Asking LM Studio...");
 
-const prompt = `
-You're a code reviewer. Here's a patch:\n\n${patchContent}\n\n
-Based on the codebase context, suggest:
-- Potential issues
-- Areas of improvement
-- Better variable names or design if applicable
-`;
+const messages = [
+  {
+    role: "system",
+    content: "You are a senior software engineer reviewing a Git patch with access to relevant repo context.",
+  },
+  {
+    role: "user",
+    content: `Here is the patch:\n${patchContent}\n\nAnd here is context from the repo:\n${repoContext}\n\nPlease give a detailed review and suggest any improvements.`,
+  },
+];
 
-const result = await queryEngine.query({ query: prompt });
-console.log("\n💡 Suggestions:\n", result.response);
+const suggestions = await askLMStudio(messages);
+
+console.log("\n💡 Suggestions from LM Studio:\n");
+console.log(suggestions);
