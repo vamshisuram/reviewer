@@ -1,25 +1,21 @@
 import fs from "fs";
 import path from "path";
-import { Document } from "llamaindex";
 
-export async function loadRepoFiles(repoPath) {
-  const files = [];
+export function loadAllRepoFiles(repoPath) {
+  const files = {};
 
-  function readDirRecursive(currentPath) {
+  function readDir(currentPath) {
     const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === "node_modules") continue;
-        readDirRecursive(fullPath);
-      } else if (entry.isFile() && fullPath.endsWith(".js")) {
-        const content = fs.readFileSync(fullPath, "utf8");
-        files.push(new Document({ text: content, metadata: { filepath: fullPath } }));
+      if (entry.isDirectory() && entry.name !== "node_modules") {
+        readDir(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith(".js")) {
+        files[path.relative(repoPath, fullPath)] = fs.readFileSync(fullPath, "utf8");
       }
     }
   }
 
-  readDirRecursive(repoPath);
+  readDir(repoPath);
   return files;
 }

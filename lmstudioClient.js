@@ -5,8 +5,7 @@ export async function askLMStudio(messages) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "llama",
-      // model: "deepseek-coder-v2-latest",
+      model: "deepseek-coder-v2-latest",
       messages,
       temperature: 0.3,
     }),
